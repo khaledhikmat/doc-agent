@@ -12,13 +12,16 @@ import asyncio
 from urllib.parse import urldefrag
 import argparse
 from typing import List, Dict, Any
-import dotenv
+from dotenv import load_dotenv
 from lightrag import LightRAG
 from lightrag.llm.openai import gpt_4o_mini_complete, openai_embed
 from lightrag.kg.shared_storage import initialize_pipeline_status
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode, MemoryAdaptiveDispatcher
 
 from common import WORKING_DIR
+from service.repo.typex import get_repo_md_urls
+
+load_dotenv()
 
 async def crawl_recursive_internal_links(start_urls, max_depth=3, max_concurrent=10) -> List[Dict[str,Any]]:
     """Returns list of dicts with url and markdown."""
@@ -74,7 +77,7 @@ async def initialize_rag():
 
     return rag
 
-def main():
+async def main():
     # Check for OpenAI API key
     if not os.getenv("OPENAI_API_KEY"):
         print("Error: OPENAI_API_KEY environment variable not set.")
@@ -87,17 +90,25 @@ def main():
         shutil.rmtree(WORKING_DIR)
     os.mkdir(WORKING_DIR)
     
+    crawl_results = []
+
     parser = argparse.ArgumentParser(description="Insert crawled docs into LightRAG")
-    parser.add_argument("urls", help="comma-delimited URLs to crawl (.md)")
+    parser.add_argument("repo_urls", help="comma-delimited repo URLs to iterate through looking for .md URLs")
     args = parser.parse_args()
 
-    # Detect URL type
-    urls = args.urls.split(',')
-    print(f"Detected regular URL: {urls}")
-    crawl_results = asyncio.run(crawl_recursive_internal_links(urls, max_depth=1, max_concurrent=10))
+    repo_urls = args.repo_urls.split(',')
+    print(f"Received the following repo URLs: {repo_urls}")
+    for repo_url in repo_urls:
+        urls = await get_repo_md_urls(repo_url.strip())
+        if not urls:
+            print(f"No markdown URLs found for {repo_url.strip()}")
+            continue
+
+        print(f"Crawling the following md URLs {urls}...")
+        crawl_results.extend(await crawl_recursive_internal_links(urls, max_depth=1, max_concurrent=10))
 
     # Initialize RAG instance and insert docs
-    rag = asyncio.run(initialize_rag())
+    rag = await initialize_rag()
     for doc in crawl_results:
         url = doc['url']
         md = doc['markdown']
@@ -105,8 +116,8 @@ def main():
             print(f"Skipping {url} - no markdown content found")
             continue
         print(f"Inserting document from {url} into RAG...")
-        rag.insert(md)
+        await rag.ainsert(md)
 
 if __name__ == "__main__":
-    main()
-    print(f"Successfully added docs to RAGLight.")
+    asyncio.run(main())
+    print(f"Successfully added docs to vector database using RAGLight.")
