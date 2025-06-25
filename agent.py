@@ -3,17 +3,14 @@
 import os
 import sys
 import argparse
-from dataclasses import dataclass
 import asyncio
 
 import dotenv
 from pydantic_ai import RunContext
 from pydantic_ai.agent import Agent
-from openai import AsyncOpenAI
 
 from lightrag import LightRAG, QueryParam
 from lightrag.llm.openai import gpt_4o_mini_complete, openai_embed
-from lightrag.kg.shared_storage import initialize_pipeline_status
 
 from common import WORKING_DIR, RAGDeps
 
