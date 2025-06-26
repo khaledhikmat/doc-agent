@@ -8,10 +8,45 @@ TBA (Mermaid to show how the build and agent run processes work)
 
 ---
 
+## LLM Support
+
+Normally, LightRAG works out of the box with OpenAI and it seems it is a good option. But if you don't want to use OpenAI or any other Cloud-based models, the other option is to use Ollama as it has out-of-the-box support in LightRAG. This project supports `openai`, `gemini` and `ollama`. 
+
+Please note that the `Gemini` support is not totally native. I noticed a huge performance degredation when using Gemini. Defintely the best option is OpenAI.
+
+To activate OpenAI, please set the following env vars:
+- `LLM_TYPE=openai`
+- `LLM_MODEL_NAME=gpt-4o-mini`
+- `OPENAI_API_KEY=<openai-api-key>`
+
+To activate Gemini, please set the following env vars:
+- `LLM_TYPE=gemini`
+- `LLM_MODEL_NAME=gemini-1.5-flash`
+- `GEMINI_API_KEY=<gemini-api-key>`
+
+To activate Ollama, please set the following env vars:
+- `LLM_TYPE=ollama`
+- `LLM_MODEL_NAME=qwen2.5-coder:7b`
+
+**Please note** if you are running Ollama, you must download and install Ollam locally and then run it:
+- On Unix:
+    - `curl -fsSL https://ollama.com/install.sh | sh`
+- On MacOS & Windows:
+    - Visit https://ollama.com/download
+- `ollama pull qwen2.5-coder:7b`
+- `ollama pull bge-m3:latest`
+- `ollama serve` # On Mac OS, the agent starts automatically
+- To confirm models are pulled properly, open up a new terminal and do: `ollama list`.
+- To confirm Ollama is running: `curl http://localhost:11434/api/tags`
+- Ollama runs the models locally and hence it requires a lot of processing power. I was not able to make it work well. My Mac (16 GB) was heating up quite a bit.
+
+---
+
 ## Prerequisites
 
 - Python 3.11+
 - OpenAI API key (for embeddings and LLM-powered search)
+- GeminiAI API key (for LLM-powered search)
 - Dependencies in `requirements.txt`
 
 ---
@@ -78,6 +113,4 @@ streamlit run app.py
 - Although it seems to work ok:
     - I see erros on build that seems to indicate missing packages! It has to do with the `graspologic` package.  
     - I also see some errors like: `limit_async: Critical error in worker: <PriorityQueue at 0x1191c4e10 maxsize=1000> is bound to a different event loop` during querying.
-- Point to a repository in Github or Gitlab to pull all `.md` file URLs and feed them to the build process.
 - Not sure what happens if I re-run build without deleting the `WORKING_DIR`!!!
-- Point LightRAG to use Gemini as an option.

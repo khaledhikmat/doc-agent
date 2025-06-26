@@ -13,12 +13,10 @@ from urllib.parse import urldefrag
 import argparse
 from typing import List, Dict, Any
 from dotenv import load_dotenv
-from lightrag import LightRAG
-from lightrag.llm.openai import gpt_4o_mini_complete, openai_embed
 from lightrag.kg.shared_storage import initialize_pipeline_status
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode, MemoryAdaptiveDispatcher
 
-from common import WORKING_DIR
+from common import WORKING_DIR, get_lightrag_instance
 from service.repo.typex import get_repo_md_urls
 
 load_dotenv()
@@ -66,22 +64,33 @@ async def crawl_recursive_internal_links(start_urls, max_depth=3, max_concurrent
     return results_all
 
 async def initialize_rag():
-    rag = LightRAG(
-        working_dir=WORKING_DIR,
-        embedding_func=openai_embed,
-        llm_model_func=gpt_4o_mini_complete
-    )
-
+    rag = get_lightrag_instance(os.getenv("LLM_TYPE"))
     await rag.initialize_storages()
     await initialize_pipeline_status()
 
     return rag
 
 async def main():
+    if not os.getenv("LLM_TYPE") or os.getenv("LLM_TYPE") not in ["openai", "gemini", "ollama"]:
+        print("Error: LLM_TYPE environment variable not set or invalid.")
+        print("Please create a .env file with LLM_TYPE set to 'openai', 'gemini', or 'ollama'.")
+        sys.exit(1)
+
+    if not os.getenv("LLM_MODEL"):
+        print("Error: LLM_MODEL environment variable must be set.")
+        print("Please create a .env file with your LLM model name or set it in your environment.")
+        sys.exit(1)
+
     # Check for OpenAI API key
-    if not os.getenv("OPENAI_API_KEY"):
+    if os.getenv("LLM_TYPE") == "openai" and not os.getenv("OPENAI_API_KEY"):
         print("Error: OPENAI_API_KEY environment variable not set.")
         print("Please create a .env file with your OpenAI API key or set it in your environment.")
+        sys.exit(1)
+
+    # Check for OpenAI API key
+    if os.getenv("LLM_TYPE") == "gemini" and not os.getenv("GEMINI_API_KEY"):
+        print("Error: GEMINI_API_KEY environment variable not set.")
+        print("Please create a .env file with your Gemini API key or set it in your environment.")
         sys.exit(1)
 
     # Check if WORKING_DIR exists, delete and recreate it
