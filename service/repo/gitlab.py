@@ -10,6 +10,7 @@ load_dotenv()
 http_client = httpx.AsyncClient()
 repo_token = os.getenv('GITLAB_TOKEN')
 repo_slug = os.getenv('GITLAB_SLUG')
+gitlab_base_url = os.getenv('GITLAB_BASE_URL', 'https://gitlab.com')
 
 # compliant with RepoService protocol
 class GitlabService:
@@ -27,7 +28,7 @@ class GitlabService:
         if not repo_token or not repo_slug:
             raise ValueError("GITLAB_TOKEN and GITLAB_SLUG environment variables must be set")
 
-        match = re.search(r'gitlab\.com[:/]([^/]+)/([^/]+?)(?:\.git)?$', repo_url)
+        match = re.search(r'gitlab[:/]([^/]+)/([^/]+?)(?:\.git)?$', repo_url)
         if not match:
             raise ValueError("Invalid GitLab URL format")
         
@@ -35,7 +36,7 @@ class GitlabService:
         headers = {'Authorization': f'Bearer {repo_token}'}
         
         response = await http_client.get(
-            f'https://gitlab.com/api/v4/projects/{owner}%2F{repo}/repository/tree?recursive=true',
+            f'{gitlab_base_url}/api/v4/projects/{owner}%2F{repo}/repository/tree?recursive=true',
             headers=headers
         )
         
