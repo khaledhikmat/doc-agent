@@ -36,9 +36,9 @@ def _get_repo_type(repo_url: str) -> str:
     Returns:
         str: The type of repository ('github' or 'gitlab').
     """
-    if "github.com" in repo_url:
+    if "github" in repo_url:
         return "github"
-    elif "gitlab.com" in repo_url:
+    elif "gitlab" in repo_url:
         return "gitlab"
     else:
         raise ValueError("Unsupported repository URL format")
