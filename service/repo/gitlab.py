@@ -35,20 +35,33 @@ class GitlabService:
         owner, repo = match.groups()
         headers = {'Authorization': f'Bearer {repo_token}'}
         
-        response = await http_client.get(
-            f'{gitlab_base_url}/api/v4/projects/{owner}%2F{repo}/repository/tree?recursive=true',
-            headers=headers
-        )
-        
-        if response.status_code != 200:
-            return f"Failed to get repository structure: {response.text}"
-        
-        data = response.json()
         structure = []
-        for item in data:
-            if not any(excluded in item['path'] for excluded in ['.git/', 'node_modules/', '__pycache__/']):
-                # structure.append(f"{'📁 ' if item['type'] == 'tree' else '📄 '}{item['path']}")
-                if item['path'].endswith('.md'):
-                    structure.append(f"{repo_url}/{repo_slug}/{item['path']}")
+        page = 1
+        per_page = 100
+
+        while True:
+            params = {"recursive": "true", "page": page, "per_page": per_page}
+            response = await http_client.get(
+                f'{gitlab_base_url}/api/v4/projects/{owner}%2F{repo}/repository/tree',
+                headers=headers,
+                params=params
+            )
+
+            response.raise_for_status()
+        
+            data = response.json()
+            if not data:
+                break
+
+            for item in data:
+                if item.get('type') == 'blob' and not any(excluded in item['path'] for excluded in ['.git/', 'node_modules/', '__pycache__/']):
+                    if item['path'].endswith('.md'):
+                        structure.append(f"{repo_url}/{repo_slug}/{item['path']}")
+
+            next_page_header = response.headers.get('x-next-page')
+            if next_page_header:
+                page = int(next_page_header)
+            else:
+                break
         
         return structure
