@@ -1,4 +1,4 @@
-*Initially cloned from: https://github.com/coleam00/ottomator-agents.git. But then I changed it quite a bit*
+*Disclaimer: Picked up code and ideas from: [https://github.com/coleam00/ottomator-agents.git](https://github.com/coleam00/ottomator-agents.git).*
 
 A documentation crawler and retrieval-augmented generation (RAG) system, powered by Crawl4AI and Pydantic AI. 
 
