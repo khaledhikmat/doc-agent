@@ -28,7 +28,7 @@ class GitlabService:
         if not repo_token or not repo_slug:
             raise ValueError("GITLAB_TOKEN and GITLAB_SLUG environment variables must be set")
 
-        match = re.search(r'gitlab[:/]([^/]+)/([^/]+?)(?:\.git)?$', repo_url)
+        match = re.search(r'gitlab\.[^/]+/([^/]+)/([^/]+?)(?:\.git)?$', repo_url)
         if not match:
             raise ValueError("Invalid GitLab URL format")
         
