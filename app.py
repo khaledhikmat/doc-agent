@@ -18,11 +18,7 @@ from pydantic_ai.messages import (
     ModelMessagesTypeAdapter
 )
 
-from lightrag import LightRAG
-from lightrag.llm.openai import gpt_4o_mini_complete, openai_embed
-from lightrag.kg.shared_storage import initialize_pipeline_status
-
-from common import WORKING_DIR, RAGDeps
+from common import WORKING_DIR, RAGDeps, get_lightrag_instance
 
 from agent import doc_agent
 
@@ -31,14 +27,9 @@ load_dotenv()
 async def get_agent_deps():
     """
     Creates a LightRAG instance
-    And then uses that to create the URL agent dependencies.
+    And then uses that to create the agent dependencies.
     """
-    rag = LightRAG(
-        working_dir=WORKING_DIR,
-        embedding_func=openai_embed,
-        llm_model_func=gpt_4o_mini_complete
-    )
-
+    rag = get_lightrag_instance(os.getenv("LLM_TYPE"))
     await rag.initialize_storages()
     deps = RAGDeps(lightrag=rag)
     return deps
