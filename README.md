@@ -77,9 +77,17 @@ http://localhost:7474
 
 ---
 
+## Services
+
+TBA
+
+---
+
 ## Pydantic LLM Support
 
 TBA
+
+---
 
 ## LightRAG LLM Support
 
