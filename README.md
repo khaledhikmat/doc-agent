@@ -8,7 +8,80 @@ TBA (Mermaid to show how the build and agent run processes work)
 
 ---
 
-## LLM Support
+## Prerequisites
+
+- Python 3.11+
+- OpenAI API key (for embeddings and LLM-powered search)
+- GeminiAI API key (for LLM-powered search)
+- Dependencies in `requirements.txt`
+
+---
+
+## Installation
+
+1. **Install dependencies:**
+
+```bash
+python3 -m venv venv
+source venv/bin/activate 
+pip3 install -r requirements.txt
+playwright install
+```
+
+2. **Set up environment variables:**
+
+- Copy `.env.example` to `.env`
+- Edit `.env` with your API keys and preferences.
+
+3. **Start Neo4j container:**
+
+- Make sure you have neo4j folder in $HOME.
+- Check to make sure that the container is not already running:
+
+```bash
+docker ps
+```
+
+- Stop the container (optional):
+
+```bash
+docker stop neo4j
+```
+
+- Remove the container (optional):
+
+```bash
+docker rm neo4j
+```
+
+- Delete `neo4j` folder subfolders (i.e. `data` and `logs`) and re-create them to remove all data (optional).
+
+- Start the container:
+
+```bash
+docker run \
+  --name neo4j \
+  -p 7474:7474 -p 7687:7687 \
+  -d \
+  -e NEO4J_AUTH="neo4j/admin4neo4j" \
+  -v $HOME/neo4j/data:/data \
+  -v $HOME/neo4j/logs:/logs \
+  neo4j:latest
+```
+
+- Access Neo4j dashboard and connect using the credentials provided i.e. `neo4j/admin4neo4j`:
+
+```bash
+http://localhost:7474
+```
+
+---
+
+## Pydantic LLM Support
+
+TBA
+
+## LightRAG LLM Support
 
 Normally, LightRAG works out of the box with OpenAI and it seems it is a good option. But if you don't want to use OpenAI or any other Cloud-based models, the other option is to use Ollama as it has out-of-the-box support in LightRAG. This project supports `openai`, `gemini` and `ollama`. 
 
@@ -42,53 +115,35 @@ To activate Ollama, please set the following env vars:
 
 ---
 
-## Prerequisites
+## CLI commands
 
-- Python 3.11+
-- OpenAI API key (for embeddings and LLM-powered search)
-- GeminiAI API key (for LLM-powered search)
-- Dependencies in `requirements.txt`
+The main entry point for ingesting and vectorizing is [`cli.py`](cli.py). There are different command categories:
 
----
-
-## Installation
-
-1. **Install dependencies:**
+### Ingesting into Vectorized Database
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate 
-pip3 install -r requirements.txt
-playwright install
+python3 cli.py ingest_lr <repo_url1,repo_url2>
+# example:
+python3 cli.py ingest_lr https://github.com/khaledhikmat/vs-go
 ```
 
-2. **Set up environment variables:**
+Please note there are other ingest commands available to reflect the RAG strategy:
+- `ingest_nv`: Naive RAG
+- `ingest_lr`: Light RAG
+- `ingest_gr`: Graphiti RAG 
 
-- Copy `.env.example` to `.env`
-- Edit `.env` with your API keys and preferences.
-
----
-
-## Testing Repo URLs
-
-The main entry point for testing `.md` files retrieval is [`build_test.py`](build_test.py):
+### Testing Repo Service
 
 ```bash
-python3 build_test.py <repo_url1,repo_url2>
+python3 cli.py test_repo <repo_url>
 # example:
-python3 build_test.py https://github.com/khaledhikmat/vs-go
+python3 cli.py test_repo https://github.com/khaledhikmat/vs-go
 ```
 
----
-
-## Building Vectorized Database
-
-The main entry point for crawling and vectorizing documentation is [`build.py`](build.py):
+### Testing Chunker Service
 
 ```bash
-python3 build.py <repo_url1,repo_url2>
-# example:
-python3 build.py https://github.com/khaledhikmat/vs-go
+python3 cli.py test_chunker
 ```
 
 ---
@@ -98,13 +153,17 @@ python3 build.py https://github.com/khaledhikmat/vs-go
 After crawling and inserting docs, launch the Streamlit app for semantic search and question answering:
 
 ```bash
-streamlit run app.py
+streamlit run app.py lr
 ```
 
 - The interface will be available at [http://localhost:8501](http://localhost:8501)
 - Query your documentation using natural language and get context-rich answers. Examples:
     - Which language is the the video-sureveillance backend is written in?
     - Can you describe the video-sureveillance architecture?
+- The argument `lr` refers to the RAG strategy to use. The following RAG stragtegies are available:
+    - `nv`: Naive RAG
+    - `lr`: Light RAG
+    - `gr`: Graphiti RAG 
 
 ---
 
@@ -114,3 +173,4 @@ streamlit run app.py
     - I see erros on build that seems to indicate missing packages! It has to do with the `graspologic` package.  
     - I also see some errors like: `limit_async: Critical error in worker: <PriorityQueue at 0x1191c4e10 maxsize=1000> is bound to a different event loop` during querying.
 - Not sure what happens if I re-run build without deleting the `WORKING_DIR`!!!
+- Add support for multiple RAG strategies

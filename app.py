@@ -1,8 +1,6 @@
 from dotenv import load_dotenv
 import streamlit as st
 import asyncio
-import os
-import sys
 
 # Import all the message part classes
 from pydantic_ai.messages import (
@@ -18,22 +16,13 @@ from pydantic_ai.messages import (
     ModelMessagesTypeAdapter
 )
 
-from common import WORKING_DIR, RAGDeps, get_lightrag_instance
+from service.config.envvars import EnvVarsConfigService
+from service.crawl.craw4ai import AICrawlService
+from service.rag.lightrag import LightRAGService
 
-from agent import doc_agent
+from agent.doc import doc_agent, DocAgentDeps
 
 load_dotenv()
-
-async def get_agent_deps():
-    """
-    Creates a LightRAG instance
-    And then uses that to create the agent dependencies.
-    """
-    rag = get_lightrag_instance(os.getenv("LLM_TYPE"))
-    await rag.initialize_storages()
-    deps = RAGDeps(lightrag=rag)
-    return deps
-
 
 def display_message_part(part):
     """
@@ -68,49 +57,62 @@ async def run_agent_with_streaming(user_input):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 async def main():
-    if not os.path.exists(WORKING_DIR):
-        print(f"Error: {WORKING_DIR} must be present and contains RAG docs.")
-        sys.exit(1)
 
-    st.title("Documentation RAG-based Agent")
+    # Initialize services
+    cfg_svc = EnvVarsConfigService()
+    crawl_svc = AICrawlService(cfg_svc)
+    rag_svc = LightRAGService(cfg_svc, crawl_svc)
 
-    # Initialize chat history in session state if not present
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    if "agent_deps" not in st.session_state:
-        st.session_state.agent_deps = await get_agent_deps()  
+    try:
+        agent_deps = DocAgentDeps(ragsvc=rag_svc)
 
-    # Display all messages from the conversation so far
-    # Each message is either a ModelRequest or ModelResponse.
-    # We iterate over their parts to decide how to display them.
-    for msg in st.session_state.messages:
-        if isinstance(msg, ModelRequest) or isinstance(msg, ModelResponse):
-            for part in msg.parts:
-                display_message_part(part)
+        st.title("Documentation RAG-based Agent")
 
-    # Chat input for the user
-    user_input = st.chat_input("What do you want to know?")
+        # Initialize chat history in session state if not present
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
+        if "agent_deps" not in st.session_state:
+            st.session_state.agent_deps = agent_deps  
 
-    if user_input:
-        # Display user prompt in the UI
-        with st.chat_message("user"):
-            st.markdown(user_input)
+        # Display all messages from the conversation so far
+        # Each message is either a ModelRequest or ModelResponse.
+        # We iterate over their parts to decide how to display them.
+        for msg in st.session_state.messages:
+            if isinstance(msg, ModelRequest) or isinstance(msg, ModelResponse):
+                for part in msg.parts:
+                    display_message_part(part)
 
-        # Display the assistant's partial response while streaming
-        with st.chat_message("assistant"):
-            # Create a placeholder for the streaming text
-            message_placeholder = st.empty()
-            full_response = ""
-            
-            # Properly consume the async generator with async for
-            generator = run_agent_with_streaming(user_input)
-            async for message in generator:
-                full_response += message
-                message_placeholder.markdown(full_response + "▌")
-            
-            # Final response without the cursor
-            message_placeholder.markdown(full_response)
+        # Chat input for the user
+        user_input = st.chat_input("What do you want to know?")
 
+        if user_input:
+            # Display user prompt in the UI
+            with st.chat_message("user"):
+                st.markdown(user_input)
+
+            # Display the assistant's partial response while streaming
+            with st.chat_message("assistant"):
+                # Create a placeholder for the streaming text
+                message_placeholder = st.empty()
+                full_response = ""
+                
+                # Properly consume the async generator with async for
+                generator = run_agent_with_streaming(user_input)
+                async for message in generator:
+                    full_response += message
+                    message_placeholder.markdown(full_response + "▌")
+                
+                # Final response without the cursor
+                message_placeholder.markdown(full_response)
+    
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
+        print(f"An error occurred: {e}")
+    finally:
+        # Finalize services
+        cfg_svc.finalize()
+        crawl_svc.finalize()
+        rag_svc.finalize()
 
 if __name__ == "__main__":
     asyncio.run(main())

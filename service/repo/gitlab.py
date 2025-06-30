@@ -3,20 +3,20 @@ import os
 import httpx
 from typing import List
 
-# this is not nice. Maybe I should send the token as an arg
-from dotenv import load_dotenv
-load_dotenv()
-
 http_client = httpx.AsyncClient()
-repo_token = os.getenv('GITLAB_TOKEN')
-repo_slug = os.getenv('GITLAB_SLUG')
-gitlab_base_url = os.getenv('GITLAB_BASE_URL', 'https://gitlab.com')
 
-# compliant with RepoService protocol
-class GitlabService:
-    async def get_repo_md_urls(self, repo_url: str) -> List[str]:
+# compliant with IRepoService protocol
+class GitlabRepoService:
+    def __init__(self, config_service):
+        self.config_service = config_service
+        self.http_client = httpx.AsyncClient()
+
+        if not self.config_service.get_gitlab_token() or not self.config_service.get_gitlab_slug() or not self.config_service.get_gitlab_base_url():
+            raise ValueError("GITLAB_TOKEN, GITLAB_SLUG and GITLAB_BASE_URL environment variables must be set")
+
+    async def get_md_urls(self, repo_url: str) -> List[str]:
         """
-        Get the directory structure of a GitLab repository. 
+        Get the directory structure of a GitLab repository.
         and return .md files only
 
         Args:
@@ -25,15 +25,12 @@ class GitlabService:
         Returns:
             Directory of files.
         """
-        if not repo_token or not repo_slug:
-            raise ValueError("GITLAB_TOKEN and GITLAB_SLUG environment variables must be set")
-
         match = re.search(r'gitlab\.[^/]+/([^/]+)/([^/]+?)(?:\.git)?$', repo_url)
         if not match:
             raise ValueError("Invalid GitLab URL format")
         
         owner, repo = match.groups()
-        headers = {'Authorization': f'Bearer {repo_token}'}
+        headers = {'Authorization': f'Bearer {self.config_service.get_gitlab_token() }'}
         
         structure = []
         page = 1
@@ -41,8 +38,8 @@ class GitlabService:
 
         while True:
             params = {"recursive": "true", "page": page, "per_page": per_page}
-            response = await http_client.get(
-                f'{gitlab_base_url}/api/v4/projects/{owner}%2F{repo}/repository/tree',
+            response = await self.http_client.get(
+                f'{self.config_service.get_gitlab_base_url()}/api/v4/projects/{owner}%2F{repo}/repository/tree',
                 headers=headers,
                 params=params
             )
@@ -56,7 +53,7 @@ class GitlabService:
             for item in data:
                 if item.get('type') == 'blob' and not any(excluded in item['path'] for excluded in ['.git/', 'node_modules/', '__pycache__/']):
                     if item['path'].endswith('.md'):
-                        structure.append(f"{repo_url}/{repo_slug}/{item['path']}")
+                        structure.append(f"{repo_url}/{self.config_service.get_gitlab_slug()}/{item['path']}")
 
             next_page_header = response.headers.get('x-next-page')
             if next_page_header:
@@ -65,3 +62,6 @@ class GitlabService:
                 break
         
         return structure
+
+    def finalize(self) -> None:
+        return None
